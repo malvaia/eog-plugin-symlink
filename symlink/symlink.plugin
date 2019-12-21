@@ -1,0 +1,9 @@
+[Plugin]
+Module=symlink
+IAge=3
+Loader=python3
+Name=Symlink in folder
+Icon=postr
+Description=Create a symlink to the image in the folder of your choosing. Press S to create the symlink.
+Authors=Pierre Lebedel <p.lebedel@infoject.fr>
+Copyright=Copyright © 2019 GPL
