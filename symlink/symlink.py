@@ -21,11 +21,12 @@
 
 import os
 
-from gi.repository import GObject, GLib, Eog, Gio
+from gi.repository import GObject, GLib, Eog, Gio, Gtk
 
 _MENU_ID = 'Symlink'
 _ACTION_NAME = 'symlink-in-folder'
-_FOLDER_NAME = 'Symlink'
+_ACTION_NAME_PARENT = 'symlink-for-parent'
+_FOLDER_NAME = 'Best'
 
 class SymlinkPlugin(GObject.Object, Eog.WindowActivatable):
     window = GObject.property(type=Eog.Window)
@@ -44,8 +45,13 @@ class SymlinkPlugin(GObject.Object, Eog.WindowActivatable):
         model = self.window.get_gear_menu_section('plugins-section')
         action = Gio.SimpleAction.new(_ACTION_NAME)
         action.connect('activate', self.symlink_cb, self.window)
-
         self.window.add_action(action)
+
+        parentAction = Gio.SimpleAction.new(_ACTION_NAME_PARENT)
+        parentAction.connect('activate', self.symlink_reduced_cb, self.window)
+        self.window.add_action(parentAction)
+
+        # Add the menu entry
         menu = Gio.Menu()
         menu.append(_('_Create Symlink'), 'win.' + _ACTION_NAME)
         item = Gio.MenuItem.new_section(None, menu)
@@ -55,6 +61,7 @@ class SymlinkPlugin(GObject.Object, Eog.WindowActivatable):
         # Add accelerator key
         app = Eog.Application.get_instance()
         app.set_accels_for_action('win.' + _ACTION_NAME, ['S', None])
+        app.set_accels_for_action('win.' + _ACTION_NAME_PARENT, ['D', None])
 
     def do_deactivate(self):
         menu = self.window.get_gear_menu_section('plugins-section')
@@ -68,6 +75,7 @@ class SymlinkPlugin(GObject.Object, Eog.WindowActivatable):
         # Disable accelerator key
         app = Eog.Application.get_instance()
         app.set_accels_for_action('win.' + _ACTION_NAME, ['S', None])
+        app.set_accels_for_action('win.' + _ACTION_NAME_PARENT, ['D', None])
 
         self.window.remove_action(_ACTION_NAME)
 
@@ -75,7 +83,7 @@ class SymlinkPlugin(GObject.Object, Eog.WindowActivatable):
         # Get path to current image.
         image = window.get_image()
         if not image:
-            print('No Symlink can be created')
+            self.error_dialog('Did you forget to open an image ?')
             return
         src = image.get_file().get_path()
         name = os.path.basename(src)
@@ -88,4 +96,46 @@ class SymlinkPlugin(GObject.Object, Eog.WindowActivatable):
 
         os.symlink(src, dest)
         print('Symlink created for %s into %s' % (name, self.symlink_dir))
+
+    def symlink_reduced_cb(self, action, parameter, window):
+        # Get path to current image.
+        reducedImage = window.get_image().get_file().get_path()
+        if not reducedImage:
+            self.error_dialog('Did you forget to open an image ?')
+            return
+
+        # Get path to the original image in the parent folder (not the reduced one)
+        reducedDir = os.path.dirname(reducedImage)
+        fileName = os.path.basename(reducedImage)
+        fileShortName = os.path.splitext(fileName)[0]
+        fileExtension = os.path.splitext(fileName)[1]
+        parentDir = os.path.normpath(os.path.join(reducedDir, os.pardir))
+        symlinkDir = os.path.join(parentDir, _FOLDER_NAME)
+        symlinkFilename = fileShortName + fileExtension.upper()
+
+        source = os.path.join(parentDir, symlinkFilename)
+        dest = os.path.join(symlinkDir, symlinkFilename)
+
+        isFile = os.path.isfile(source)
+        if not isFile:
+            self.error_dialog('Source image does not exists')
+            return
+
+        # Create directory if it doesn't exist.
+        try:
+            os.makedirs(symlinkDir)
+        except OSError:
+            pass
+
+        os.symlink(source, dest)
+        print('Symlink %s created for %s into %s' % (symlinkFilename, fileName, symlinkDir))
+
+    def error_dialog(self, message):
+        dialog = Gtk.MessageDialog(None, 0, Gtk.MessageType.INFO, Gtk.ButtonsType.OK, "EOG Symlink plugin")
+        dialog.format_secondary_text(message)
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            dialog.destroy()
+
 
