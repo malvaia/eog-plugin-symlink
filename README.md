@@ -16,3 +16,5 @@ Edit the `_FOLDER_NAME` in `symlink.py:28` to the name of your choosing
 
 ## Usage
 Press the S key to create the symlink. Alternatively, you can click on the Application menu -> Create Symlink
+D -> Create a symlink for the original file (located in the parent folder) in the Best folder.
+CTRL+X -> Delete the original file (located in the parent folder).
